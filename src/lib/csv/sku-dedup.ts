@@ -1,7 +1,3 @@
-/**
- * When the challenge CSV repeats a SKU with different row data, treat later rows as
- * distinct variants by appending a version suffix (e.g. RS-001 → RS-001-V2).
- */
 export function assignUniqueSkuSuffixes<T extends { sku: string }>(rows: T[]): T[] {
   const seen = new Map<string, number>();
 

@@ -1,5 +1,3 @@
-/** Unsplash image helpers — free to use via Unsplash CDN */
-
 export function unsplashImage(path: string, width = 1200) {
   return `https://images.unsplash.com/${path}?auto=format&fit=crop&w=${width}&q=80`;
 }
