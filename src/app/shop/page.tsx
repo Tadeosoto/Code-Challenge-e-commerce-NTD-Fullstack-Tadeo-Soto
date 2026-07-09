@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { SectionHeading } from "@/components/marketing/section-heading";
-import { FadeIn, StaggerGrid, StaggerItem } from "@/components/motion/primitives";
+import { FadeIn } from "@/components/motion/primitives";
 import { formatCurrency } from "@/lib/utils";
 import { useCart } from "@/lib/cart/cart-context";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -163,7 +163,7 @@ export default function ShopPage() {
   return (
     <div className="space-y-8">
       <div className="relative overflow-hidden rounded-[2.5rem]">
-        <div className="relative min-h-[14rem] md:min-h-[18rem]">
+        <div className="relative min-h-56 md:min-h-72">
           <Image
             src={siteImages.shopCollection.src}
             alt={siteImages.shopCollection.alt}
@@ -189,7 +189,7 @@ export default function ShopPage() {
         </div>
       </div>
 
-      <FadeIn className="rounded-[2rem] border border-black/5 bg-white/70 p-6">
+      <FadeIn className="rounded-4xl border border-black/5 bg-white/70 p-6">
         <div className="grid gap-4 lg:grid-cols-[2fr_1fr_1fr]">
           <Input
             placeholder="Search Running Shoes, Bluetooth Speaker, Yoga Mat..."
@@ -235,14 +235,14 @@ export default function ShopPage() {
             </p>
           ) : null}
 
-          <StaggerGrid className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {results?.items.map((product) => {
               const inCart = items.some((item) => item.productId === product.id);
               const image = getProductCategoryImage(product.category, product.name, product.sku);
               return (
-                <StaggerItem key={product.id}>
-                  <article className="flex h-full flex-col overflow-hidden rounded-[2rem] border border-black/5 bg-white/70">
-                    <div className="relative min-h-[11rem]">
+                <div key={product.id}>
+                  <article className="flex h-full flex-col overflow-hidden rounded-4xl border border-black/5 bg-white/70">
+                    <div className="relative min-h-44">
                       <Image
                         src={image.src}
                         alt={image.alt}
@@ -312,13 +312,13 @@ export default function ShopPage() {
                       </div>
                     </div>
                   </article>
-                </StaggerItem>
+                </div>
               );
             })}
-          </StaggerGrid>
+          </div>
 
           {totalPages > 1 ? (
-            <div className="flex flex-wrap items-center justify-between gap-4 rounded-[2rem] border border-black/5 bg-white/70 px-6 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-4 rounded-4xl border border-black/5 bg-white/70 px-6 py-4">
               <p className="font-mono-body text-sm text-muted">
                 Page {currentPage} of {totalPages}
               </p>
@@ -358,7 +358,7 @@ export default function ShopPage() {
 
       {results && results.items.length === 0 && !loading ? (
         <FadeIn>
-          <div className="rounded-[2rem] border border-black/5 bg-white/60 p-10 text-center">
+          <div className="rounded-4xl border border-black/5 bg-white/60 p-10 text-center">
             <p className="font-serif-display text-2xl">No products found</p>
             <p className="font-mono-body mt-2 text-sm text-muted">
               try importing the catalog from the owner import page first.

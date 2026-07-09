@@ -2,55 +2,94 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { UserRole } from "@/generated/prisma/client";
 
-const DUMMY_PASSWORD = "dummy";
+type DemoUserConfig = {
+  role: UserRole;
+  username: string;
+  password: string;
+  sellerName: string | null;
+};
 
-export async function loginAsRole(role: UserRole) {
-  if (role === UserRole.OWNER) {
-    let owner = await prisma.user.findFirst({ where: { role: UserRole.OWNER } });
-    if (!owner) {
-      owner = await prisma.user.create({
-        data: {
-          username: "owner",
-          passwordHash: await bcrypt.hash(DUMMY_PASSWORD, 10),
-          role: UserRole.OWNER,
-        },
-      });
-    }
-    return owner;
-  }
+const DEMO_USERS: DemoUserConfig[] = [
+  {
+    role: UserRole.BUYER,
+    username: "buyer",
+    password: "buyer123",
+    sellerName: null,
+  },
+  {
+    role: UserRole.SELLER,
+    username: "seller",
+    password: "seller123",
+    sellerName: null,
+  },
+  {
+    role: UserRole.OWNER,
+    username: "owner",
+    password: "owner123",
+    sellerName: null,
+  },
+];
 
-  if (role === UserRole.BUYER) {
-    let buyer = await prisma.user.findFirst({ where: { role: UserRole.BUYER, username: "demo-buyer" } });
-    if (!buyer) {
-      buyer = await prisma.user.create({
-        data: {
-          username: "demo-buyer",
-          passwordHash: await bcrypt.hash(DUMMY_PASSWORD, 10),
-          role: UserRole.BUYER,
-        },
-      });
-    }
-    return buyer;
-  }
+function getDemoUserConfig(role: UserRole) {
+  return DEMO_USERS.find((user) => user.role === role) ?? null;
+}
 
-  return prisma.$transaction(async (tx) => {
-    const maxSeller = await tx.user.aggregate({
-      where: { role: UserRole.SELLER },
-      _max: { sellerNumber: true },
-    });
-    const sellerNumber = (maxSeller._max.sellerNumber ?? 0) + 1;
-    const sellerName = `seller${sellerNumber}`;
+async function ensureDemoUser(user: DemoUserConfig) {
+  const passwordHash = await bcrypt.hash(user.password, 10);
 
-    return tx.user.create({
-      data: {
-        username: sellerName,
-        passwordHash: await bcrypt.hash(DUMMY_PASSWORD, 10),
-        role: UserRole.SELLER,
-        sellerNumber,
-        sellerName,
-      },
-    });
+  return prisma.user.upsert({
+    where: { username: user.username },
+    update: {
+      passwordHash,
+      role: user.role,
+      sellerName: user.sellerName,
+      sellerNumber: null,
+    },
+    create: {
+      username: user.username,
+      passwordHash,
+      role: user.role,
+      sellerName: user.sellerName,
+      sellerNumber: null,
+    },
   });
+}
+
+export async function ensureDemoUsers() {
+  for (const user of DEMO_USERS) {
+    await ensureDemoUser(user);
+  }
+}
+
+export async function authenticateDemoUser(role: UserRole, username: string, password: string) {
+  const expectedUser = getDemoUserConfig(role);
+  const normalizedUsername = username.trim().toLowerCase();
+
+  if (!expectedUser || normalizedUsername !== expectedUser.username) {
+    return null;
+  }
+
+  let user = await prisma.user.findUnique({
+    where: { username: expectedUser.username },
+  });
+
+  if (!user) {
+    await ensureDemoUser(expectedUser);
+    user = await prisma.user.findUnique({
+      where: { username: expectedUser.username },
+    });
+  }
+
+  if (!user || user.role !== role) {
+    return null;
+  }
+
+  const matches = await bcrypt.compare(password, user.passwordHash);
+  if (!matches) {
+    return null;
+  }
+
+  return user;
 }
 
 export async function getUserById(id: string) {

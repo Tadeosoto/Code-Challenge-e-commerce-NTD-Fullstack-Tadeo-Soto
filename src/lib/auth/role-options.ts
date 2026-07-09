@@ -19,7 +19,7 @@ export const ROLE_OPTIONS: RoleOption[] = [
   {
     role: "SELLER",
     title: "Seller",
-    description: "Create and manage your products. Each seller gets a unique ID (seller1, seller2…).",
+    description: "Create and manage your products. Seller changes wait for owner approval.",
     icon: Store,
   },
   {
@@ -31,3 +31,7 @@ export const ROLE_OPTIONS: RoleOption[] = [
 ];
 
 export const ROLE_PICKER_DISMISSED_KEY = "ntd-role-picker-dismissed";
+
+export function getDemoUsername(role: DemoRole) {
+  return role.toLowerCase();
+}

@@ -191,7 +191,7 @@ function FloatingMenuToggle({
     <MenuToggle
       isOpen={isOpen}
       toggle={toggle}
-      className="fixed z-[210] bg-charcoal/95 text-white shadow-lg hover:bg-charcoal"
+      className="fixed z-210 bg-charcoal/95 text-white shadow-lg hover:bg-charcoal"
       style={{
         left: Math.max(origin.x - 18, 8),
         top: Math.max(origin.y - 18, 8),
@@ -279,7 +279,7 @@ function MobileNavOverlay({
       {isOpen ? (
         <motion.div
           key="mobile-nav-backdrop"
-          className="fixed inset-0 z-[200] md:hidden"
+          className="fixed inset-0 z-200 md:hidden"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -342,7 +342,7 @@ function MobileNavOverlay({
                   <p className="font-mono-body px-2 text-xs text-muted">
                     Signed in as{" "}
                     <span className="font-medium text-charcoal">
-                      {user.role === "SELLER" ? user.sellerName : user.username}
+                      {user.role === "SELLER" ? user.sellerName ?? user.username : user.username}
                     </span>{" "}
                     ({user.role})
                   </p>

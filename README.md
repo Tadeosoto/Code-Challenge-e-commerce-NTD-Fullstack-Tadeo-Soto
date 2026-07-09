@@ -40,14 +40,18 @@ Accessibility fixes applied: `aria-label` on icon-only header links (search, car
 ## Try the demo
 
 1. Start the app (see [Run locally](#run-locally) or [Run with Docker](#run-with-docker)).
-2. On first visit, pick a role in the modal (or **“I just want to see”** to browse without logging in).
+2. On first visit, sign in from the modal with the role dropdown (or **“I just want to see”** to browse without logging in).
 3. **Owner** — import CSV at `/owner/import`, review/fix at `/owner/approvals`, edit/delete any product on `/shop`.
-4. **Seller** — manage listings at `/seller/products` (each login gets a unique seller id).
+4. **Seller** — manage listings at `/seller/products`.
 5. **Buyer** — search and buy at `/shop`, checkout at `/cart`.
 
-**Seed owner credentials** (also used when picking Owner in the role modal): `owner` / `owner123`
+**Demo credentials**:
 
-Buyer and Seller use passwordless demo login via the role picker (`POST /api/auth/login` with `{ "role": "BUYER" | "SELLER" }`).
+- Buyer: `buyer` / `buyer123`
+- Seller: `seller` / `seller123`
+- Owner: `owner` / `owner123`
+
+The login modal and `/login` page use a role dropdown with **Select role** as the placeholder. Once a role is selected, the username is fixed to the role name and the password is verified with `bcrypt` before creating the session cookie.
 
 ## Architecture
 
@@ -101,7 +105,7 @@ In production we would likely combine both approaches: **block obvious attacks a
 |----------|-----------|
 | Next.js full-stack | Single deployable unit; UI and API share types and services |
 | PostgreSQL + Prisma | Relational orders/inventory; parameterized queries by default |
-| Session auth by role | Fits demo UX (role picker modal); clearer than a shared secret for reviewers |
+| Session auth by role | Fits demo UX, keeps a real login step, and is simpler than a shared secret for reviewers |
 | Quarantine invalid CSV rows | Import never fails entirely; owner sees tags and fixes data — shows judgment vs blind skip |
 | SKU suffix for duplicates | Preserves conflicting rows as distinct products (`RS-001-V2`) instead of last-wins upsert |
 | React text rendering + ORM | XSS/SQL strings in names are stored for review but escaped on display and never concatenated into SQL |
@@ -204,7 +208,7 @@ Owners edit pending products, clear all issue tags, then approve. Approve is blo
 
 **Known demo limitations** (acceptable for the challenge, not for production):
 
-- Owner login is passwordless via the role picker (`POST /api/auth/login` with `{ "role": "OWNER" }`).
+- Demo credentials are intentionally documented in this README for reviewer convenience.
 - No rate limiting, CSP headers, or WAF — would add for a real deployment.
 - Change `SESSION_SECRET` from the default before any public hosting.
 
@@ -225,7 +229,7 @@ Running `npm audit` may report **moderate** issues in transitive **dev/build** d
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| POST | `/api/auth/login` | No | Demo login `{ "role": "BUYER" \| "SELLER" \| "OWNER" }` |
+| POST | `/api/auth/login` | No | Demo login `{ "role", "username", "password" }` |
 | POST | `/api/auth/logout` | Session | End session |
 | GET | `/api/auth/me` | Session | Current user |
 | GET | `/api/products/search?q=&category=` | No | Search approved products |

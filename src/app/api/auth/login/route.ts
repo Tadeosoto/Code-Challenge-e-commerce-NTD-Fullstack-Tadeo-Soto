@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { loginAsRole } from "@/lib/services/auth.service";
+import { authenticateDemoUser } from "@/lib/services/auth.service";
 import { roleLoginSchema } from "@/lib/validators/auth";
 import { createSessionToken, sessionCookieOptions } from "@/lib/session";
 import { UserRole } from "@/generated/prisma/client";
@@ -14,10 +14,18 @@ export async function POST(request: Request) {
   const body = await request.json();
   const parsed = roleLoginSchema.safeParse(body);
   if (!parsed.success) {
-    return Response.json({ error: "Invalid role" }, { status: 400 });
+    return Response.json({ error: "Role, username, and password are required." }, { status: 400 });
   }
 
-  const user = await loginAsRole(parsed.data.role as UserRole);
+  const user = await authenticateDemoUser(
+    parsed.data.role as UserRole,
+    parsed.data.username,
+    parsed.data.password,
+  );
+
+  if (!user) {
+    return Response.json({ error: "Invalid credentials." }, { status: 401 });
+  }
 
   const token = await createSessionToken({
     userId: user.id,
@@ -28,7 +36,7 @@ export async function POST(request: Request) {
 
   const message =
     user.role === UserRole.SELLER
-      ? `Logged in as ${user.sellerName ?? "Seller"}. Add products — they will wait for owner approval.`
+      ? `Logged in as ${user.username}. Add products — they will wait for owner approval.`
       : roleMessages[user.role];
 
   const response = NextResponse.json({

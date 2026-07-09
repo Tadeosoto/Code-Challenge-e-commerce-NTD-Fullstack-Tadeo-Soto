@@ -89,7 +89,7 @@ export function SiteHeader() {
           <div className="flex items-center gap-1 md:gap-3">
             {user ? (
               <span className="hidden text-xs text-white/70 lg:inline">
-                {user.role === "SELLER" ? user.sellerName : user.username} ({user.role})
+                {user.role === "SELLER" ? user.sellerName ?? user.username : user.username} ({user.role})
               </span>
             ) : null}
             <Link
