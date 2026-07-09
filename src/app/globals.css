@@ -1,26 +1,120 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
+  --background: #f7f4ef;
   --foreground: #171717;
+  --cream: #f7f4ef;
+  --charcoal: #1a1a1a;
+  --lavender: #dcd4f5;
+  --lavender-dark: #c4b8eb;
+  --muted: #6b6560;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-cream: var(--cream);
+  --color-charcoal: var(--charcoal);
+  --color-lavender: var(--lavender);
+  --color-lavender-dark: var(--lavender-dark);
+  --color-muted: var(--muted);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-serif: var(--font-playfair);
 }
 
 body {
-  background: var(--background);
+  background: var(--cream);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+.font-serif-display {
+  font-family: var(--font-playfair), Georgia, serif;
+}
+
+.font-mono-body {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+}
+
+.hero-gradient {
+  background:
+    linear-gradient(180deg, rgba(26, 26, 26, 0.15) 0%, rgba(26, 26, 26, 0.55) 100%),
+    linear-gradient(135deg, #c9bfb0 0%, #8a7f72 45%, #5c5348 100%);
+}
+
+.product-card-gradient-1 {
+  background: linear-gradient(160deg, #d4cfc7 0%, #9a9084 100%);
+}
+
+.product-card-gradient-2 {
+  background: linear-gradient(160deg, #c8d0dc 0%, #7a8798 100%);
+}
+
+.product-card-gradient-3 {
+  background: linear-gradient(160deg, #ddd0c4 0%, #a08878 100%);
+}
+
+.image-scrim-base {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: rgba(26, 26, 26, 0.38);
+}
+
+.image-scrim-layer {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+}
+
+.image-scrim-hero {
+  background:
+    linear-gradient(to right, rgba(26, 26, 26, 0.82) 0%, rgba(26, 26, 26, 0.45) 55%, rgba(26, 26, 26, 0.2) 100%),
+    linear-gradient(to top, rgba(26, 26, 26, 0.92) 0%, rgba(26, 26, 26, 0.55) 50%, rgba(26, 26, 26, 0.25) 100%);
+}
+
+.image-scrim-card {
+  background: linear-gradient(
+    to top,
+    rgba(26, 26, 26, 0.94) 0%,
+    rgba(26, 26, 26, 0.72) 38%,
+    rgba(26, 26, 26, 0.35) 72%,
+    rgba(26, 26, 26, 0.12) 100%
+  );
+}
+
+.image-scrim-banner {
+  background:
+    linear-gradient(to right, rgba(26, 26, 26, 0.9) 0%, rgba(26, 26, 26, 0.62) 50%, rgba(26, 26, 26, 0.35) 100%),
+    linear-gradient(to top, rgba(26, 26, 26, 0.55) 0%, transparent 70%);
+}
+
+.image-scrim-panel {
+  background: linear-gradient(
+    to top,
+    rgba(26, 26, 26, 0.88) 0%,
+    rgba(26, 26, 26, 0.45) 45%,
+    rgba(26, 26, 26, 0.18) 100%
+  );
+}
+
+.text-on-image {
+  color: #fff;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.55);
+}
+
+.text-on-image h1,
+.text-on-image h2,
+.text-on-image h3,
+.text-on-image p,
+.text-on-image em,
+.text-on-image span {
+  color: inherit;
 }

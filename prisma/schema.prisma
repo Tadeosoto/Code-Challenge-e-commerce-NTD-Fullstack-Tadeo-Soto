@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String    @id @default(cuid())
+  username     String    @unique
+  passwordHash String
+  role         UserRole
+  sellerNumber Int?
+  sellerName   String?   @unique
+  createdAt    DateTime  @default(now())
+  products     Product[] @relation("SellerProducts")
+
+  @@unique([role, sellerNumber])
+  @@index([role])
+}
+
+model Product {
+  id          String        @id @default(cuid())
+  name        String
+  sku         String        @unique
+  description String        @default("")
+  category    String
+  price       Decimal       @db.Decimal(10, 2)
+  stock       Int           @default(0)
+  weightKg    Decimal?      @db.Decimal(10, 3)
+  status      ProductStatus @default(PENDING)
+  sellerId    String?
+  seller      User?         @relation("SellerProducts", fields: [sellerId], references: [id])
+  validationIssues Json     @default("[]")
+  approvedAt  DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  orderItems  OrderItem[]
+
+  @@index([category])
+  @@index([name])
+  @@index([status])
+  @@index([sellerId])
+}
+
+model Order {
+  id        String      @id @default(cuid())
+  buyerId   String?
+  status    OrderStatus @default(PAID)
+  total     Decimal     @db.Decimal(10, 2)
+  createdAt DateTime    @default(now())
+  items     OrderItem[]
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  productId String
+  quantity  Int
+  unitPrice Decimal @db.Decimal(10, 2)
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model ImportLog {
+  id        String   @id @default(cuid())
+  filename  String
+  imported  Int      @default(0)
+  updated   Int      @default(0)
+  skipped   Int      @default(0)
+  errors    Json     @default("[]")
+  createdAt DateTime @default(now())
+}
+
+enum UserRole {
+  BUYER
+  SELLER
+  OWNER
+}
+
+enum ProductStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum OrderStatus {
+  PAID
+  FAILED
+}

@@ -4,23 +4,52 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:docker": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "bcryptjs": "^3.0.3",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "dotenv": "^17.4.2",
+    "framer-motion": "^12.42.2",
+    "jose": "^6.2.3",
+    "lucide-react": "^1.23.0",
     "next": "16.2.10",
+    "papaparse": "^5.5.4",
+    "pg": "^8.22.0",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "tailwind-merge": "^3.6.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
+    "@types/papaparse": "^5.5.2",
+    "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6.0.3",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
+    "prisma": "^7.8.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "tsx": "^4.23.0",
+    "typescript": "^5",
+    "vitest": "^4.1.10"
   }
 }
