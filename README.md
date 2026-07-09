@@ -85,6 +85,18 @@ We chose three roles instead of one “admin key” because the challenge CSV is
 
 ## Decisions and trade-offs
 
+### Key dilemma: deny bad data vs quarantine for review
+
+The CSV includes XSS payloads, SQL-like strings, invalid prices, and other trap rows. The strictest option is to **reject that data at the door** — skip the row or fail the import so nothing malicious or invalid ever touches the database.
+
+We chose **quarantine instead** (`PENDING` + validation tags) because this is a **demo meant to show judgment**:
+
+- Reviewers can see *which* rows failed and *why* (`XS-001`, `SQL-001`, `YM-015`, etc.)
+- The owner workflow (fix → approve) mirrors how a real catalog team handles a bad supplier file
+- The shop stays safe: only `APPROVED` products are searchable and purchasable
+
+In production we would likely combine both approaches: **block obvious attacks at ingress**, log them, and only quarantine rows that are fixable data-quality issues (bad price, missing category). For the challenge, storing trap rows as pending makes the edge cases visible without ever executing them — React escapes on render, Prisma parameterizes queries, and the public shop never lists unapproved inventory.
+
 | Decision | Rationale |
 |----------|-----------|
 | Next.js full-stack | Single deployable unit; UI and API share types and services |
@@ -97,6 +109,7 @@ We chose three roles instead of one “admin key” because the challenge CSV is
 
 ### Alternatives considered
 
+- **Deny / skip invalid rows entirely** — Safest and simplest counts; rejected here because it hides the CSV traps the challenge is designed to surface. Better as a production default combined with logging.
 - **Skip invalid rows** — Simpler counts, but hides problems; harder to demonstrate CSV edge-case handling.
 - **Last-wins upsert on duplicate SKU** — Loses the second `RS-001` / `BS-021` rows silently; bad for audit and for the challenge’s duplicate-SKU trap.
 - **Single admin API key** — Fast for CRUD-only scope, but does not model seller vs operator workflows.
