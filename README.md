@@ -25,9 +25,53 @@ This implementation goes beyond a single admin API key: it models a small market
 
 ## Shopping chat assistant
 
-Floating **Chat** button on public browse pages (including **home**, `/shop`, `/cart`, About, etc.) opens a **docked bottom-right widget** — you can keep chatting while navigating. It stays closed on login/owner/seller screens.
+Buyer-facing shopping helper powered by **Google Gemini**. It answers casual English questions (“for my pc”, “gift for mom”, “go camping”) using **only APPROVED catalog products**, with price/stock taken from the database — not invented by the model.
 
-**Setup**
+Floating **Chat** on public browse pages (home, `/shop`, `/cart`, About, etc.) opens a **docked bottom-right widget** so you can navigate while chatting. Hidden on `/login`, `/owner`, and `/seller`.
+
+### Where the logic lives
+
+| Layer | Path | Responsibility |
+| ----- | ---- | -------------- |
+| UI widget | `src/components/chat/shopping-assistant.tsx` | Docked chat panel, product cards, Add to cart / View shop |
+| API route | `src/app/api/chat/route.ts` | `POST { messages[] }` → validates input, calls the service |
+| Chat service | `src/lib/services/chat.service.ts` | Orchestrates catalog fetch, price filter, Gemini call, ID filtering |
+| Intent / slang / typos | `src/lib/chat/query-expansion.ts` | Maps lifestyle phrases + synonyms + misspellings → search terms |
+| Request schema | `src/lib/validators/chat.ts` | Zod validation for chat payloads |
+| Shell wiring | `src/components/layout/app-shell.tsx` | Mounts the widget on browse layouts |
+
+**Start here if you are another agent or a recruiter reviewing the feature:** `src/lib/chat/query-expansion.ts` (intent maps) and `src/lib/services/chat.service.ts` (end-to-end flow).
+
+### How it works (request flow)
+
+```text
+User message
+    │
+    ▼
+query-expansion.ts
+  · typo fixes (e.g. "shose" → shoes)
+  · slang / synonyms (music → speakers, earbuds)
+  · phrase intents ("for my pc", "movie night", "walk the dog", …)
+  · optional price intent (under $50, cheap, between X and Y)
+    │
+    ▼
+searchProducts(..., approvedOnly=true)   ← same shop rules
+  · merge hits, prefer in-stock, apply price filter
+    │
+    ▼
+Gemini (system prompt + PROVIDED CATALOG JSON)
+  · reply + productIds
+    │
+    ▼
+chat.service.ts filters productIds to catalog IDs only
+    │
+    ▼
+UI shows reply + cards (Add to cart needs Buyer session)
+```
+
+Lifestyle scenarios in `query-expansion.ts` are built from the challenge CSV: PC/office, gym/yoga/running, camping/hiking, kitchen/coffee, travel, beauty/sleep, home decor, movie/game night, gifts, school, cycling, pets, baby, rain, party, DIY, and more — each expands to related product search terms that actually exist in the catalog.
+
+### Setup
 
 1. Get an API key from [Google AI Studio](https://aistudio.google.com/apikey).
 2. Add it to `.env` (and Docker if needed):
@@ -42,7 +86,7 @@ Without a key, the rest of the app still works; chat returns **503** with a clea
 
 If chat returns **429** with `limit: 0`, that usually means the model is not enabled on your free-tier key (not that you “used too many messages”). Create a new key/project in AI Studio, set `GEMINI_MODEL=gemini-2.5-flash`, wait a minute, or check [rate limits](https://ai.dev/rate-limit).
 
-**How it stays safe**
+### Safety / product boundaries
 
 - Catalog context is loaded only via existing `searchProducts(..., approvedOnly=true)` — same rules as `/shop`.
 - The model never invents prices/stock; replies are grounded in PROVIDED CATALOG JSON.
@@ -86,10 +130,11 @@ The login modal and `/login` page use a role dropdown with **Select role** as th
 Next.js App Router (pages + API routes)
         │
         ▼
-Service layer (auth, products, import, orders)
-        │
+Service layer (auth, products, import, orders, chat)
+        │                    ▲
+        │                    └── query-expansion (slang / scenarios)
         ▼
-Prisma ORM + PostgreSQL
+Prisma ORM + PostgreSQL (+ Gemini for shopping chat only)
 ```
 
 ## Roles and why CRUD is split
@@ -322,12 +367,15 @@ The app container runs `prisma generate`, `prisma migrate deploy`, and seed on s
 
 ```text
 src/
-  app/              Pages and API routes
-  components/       UI (shop, auth, owner/seller tools)
+  app/              Pages and API routes (incl. api/chat)
+  components/
+    chat/           Shopping assistant UI widget
+    …               Shop, auth, owner/seller tools
   lib/
+    chat/           Query expansion: slang, typos, lifestyle intents
     csv/            Parser, normalizer, SKU dedup
-    services/       Business logic
-    validators/     Zod + product issue detection
+    services/       Business logic (incl. chat.service.ts)
+    validators/     Zod + product issue detection (incl. chat.ts)
 data/
   NTD Code Challenge E-Commerce.csv
 prisma/
@@ -341,6 +389,6 @@ tests/
 1. Log in as **Owner** → import CSV at `/owner/import`.
 2. Read the import report (`pendingReview` vs `skipped`).
 3. Fix quarantined rows at `/owner/approvals` (e.g. fix price on `YM-015`, reject `SQL-001`).
-4. Log in as **Buyer** → search `/shop`, add to cart, mock pay at `/cart`.
+4. Log in as **Buyer** → search `/shop`, use **Chat** for lifestyle questions, add to cart, mock pay at `/cart`.
 5. Log in as **Seller** → add a product at `/seller/products`; as Owner, approve it.
 6. Confirm the new listing appears in the shop.
