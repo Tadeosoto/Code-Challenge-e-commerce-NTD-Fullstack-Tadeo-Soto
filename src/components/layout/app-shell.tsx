@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { RolePickerModal } from "@/components/auth/role-picker-modal";
+import { ShoppingAssistant } from "@/components/chat/shopping-assistant";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { CartProvider } from "@/lib/cart/cart-context";
@@ -38,6 +39,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <SiteHeader />
           <MainContent>{children}</MainContent>
           <SiteFooter />
+          <ShoppingAssistant />
         </CartProvider>
       </FeedbackProvider>
     </AuthProvider>

@@ -19,19 +19,46 @@ This implementation goes beyond a single admin API key: it models a small market
 - **Duplicate SKU handling** — variant suffixes instead of silent overwrites
 - **Product search** by name, SKU, category, and description (approved products only in the shop)
 - **Shopping cart** and **mock payment** with transactional stock decrement
+- **Shopping chat assistant** (Gemini) — buyer Q&A grounded in APPROVED products only
 - **PostgreSQL** + Prisma ORM, **Docker Compose** for one-command startup
 - **Unit tests** for CSV parsing, normalization, SKU dedup, and validation
+
+## Shopping chat assistant
+
+Floating **Chat** button on public browse pages (including **home**, `/shop`, `/cart`, About, etc.) opens a **docked bottom-right widget** — you can keep chatting while navigating. It stays closed on login/owner/seller screens.
+
+**Setup**
+
+1. Get an API key from [Google AI Studio](https://aistudio.google.com/apikey).
+2. Add it to `.env` (and Docker if needed):
+
+```bash
+GEMINI_API_KEY=your-key-here
+```
+
+Optional: `GEMINI_MODEL` (defaults to `gemini-2.5-flash`, with automatic fallbacks if a model has no free-tier quota).
+
+Without a key, the rest of the app still works; chat returns **503** with a clear message.
+
+If chat returns **429** with `limit: 0`, that usually means the model is not enabled on your free-tier key (not that you “used too many messages”). Create a new key/project in AI Studio, set `GEMINI_MODEL=gemini-2.5-flash`, wait a minute, or check [rate limits](https://ai.dev/rate-limit).
+
+**How it stays safe**
+
+- Catalog context is loaded only via existing `searchProducts(..., approvedOnly=true)` — same rules as `/shop`.
+- The model never invents prices/stock; replies are grounded in PROVIDED CATALOG JSON.
+- Product cards returned by the API are filtered to IDs that actually came from that catalog query.
+- **Add to cart** uses the real cart context (Buyer session required). Checkout stays transactional on `/cart` — the LLM cannot mark payment complete.
 
 ## Lighthouse scores
 
 Audited on the homepage (`http://localhost:3000`) with Chrome Lighthouse:
 
-| Category | Score |
-|----------|------:|
-| Performance | **99** |
-| Accessibility | **100** |
+| Category       |   Score |
+| -------------- | ------: |
+| Performance    |  **99** |
+| Accessibility  | **100** |
 | Best Practices | **100** |
-| SEO | **100** |
+| SEO            | **100** |
 
 ![Lighthouse audit scores](docs/lighthouse-scores.png)
 
@@ -43,7 +70,7 @@ Accessibility fixes applied: `aria-label` on icon-only header links (search, car
 2. On first visit, sign in from the modal with the role dropdown (or **“I just want to see”** to browse without logging in).
 3. **Owner** — import CSV at `/owner/import`, review/fix at `/owner/approvals`, edit/delete any product on `/shop`.
 4. **Seller** — manage listings at `/seller/products`.
-5. **Buyer** — search and buy at `/shop`, checkout at `/cart`.
+5. **Buyer** — search and buy at `/shop`, checkout at `/cart`, or ask the floating **Chat** assistant about approved products.
 
 **Demo credentials**:
 
@@ -67,23 +94,23 @@ Prisma ORM + PostgreSQL
 
 ## Roles and why CRUD is split
 
-| Role | Who they are | What they can do | Why separate |
-|------|----------------|------------------|--------------|
-| **Buyer** | Shopper | Browse/search approved products, cart, mock checkout | Checkout must not depend on seller privileges; orders only reference live inventory |
-| **Seller** | Vendor | Create/update/delete **their** products | Listings start as `PENDING` until reviewed — prevents bad CSV-style data from going live from the UI |
-| **Owner** | Store operator | CSV import, approve/reject pending items, edit/delete **any** product | Mirrors “platform admin” without giving sellers import or approval power |
+| Role       | Who they are   | What they can do                                                      | Why separate                                                                                         |
+| ---------- | -------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| **Buyer**  | Shopper        | Browse/search approved products, cart, mock checkout                  | Checkout must not depend on seller privileges; orders only reference live inventory                  |
+| **Seller** | Vendor         | Create/update/delete **their** products                               | Listings start as `PENDING` until reviewed — prevents bad CSV-style data from going live from the UI |
+| **Owner**  | Store operator | CSV import, approve/reject pending items, edit/delete **any** product | Mirrors “platform admin” without giving sellers import or approval power                             |
 
 **API enforcement** (session cookie, not API keys):
 
-| Action | Buyer | Seller | Owner |
-|--------|-------|--------|-------|
-| Search / view product | Yes (approved only in shop) | Yes | Yes |
-| Create product | No | Yes → `PENDING` | No |
-| Update product | No | Own only → back to `PENDING` | Any; stays `APPROVED` if valid |
-| Delete product | No | Own only | Any |
-| CSV import | No | No | Yes |
-| Approve / reject | No | No | Yes |
-| Place order | Yes | No | No |
+| Action                | Buyer                       | Seller                       | Owner                          |
+| --------------------- | --------------------------- | ---------------------------- | ------------------------------ |
+| Search / view product | Yes (approved only in shop) | Yes                          | Yes                            |
+| Create product        | No                          | Yes → `PENDING`              | No                             |
+| Update product        | No                          | Own only → back to `PENDING` | Any; stays `APPROVED` if valid |
+| Delete product        | No                          | Own only                     | Any                            |
+| CSV import            | No                          | No                           | Yes                            |
+| Approve / reject      | No                          | No                           | Yes                            |
+| Place order           | Yes                         | No                           | No                             |
 
 We chose three roles instead of one “admin key” because the challenge CSV is full of data-quality traps — the natural response is a **human approval queue**, not silently accepting or dropping rows. Sellers submitting through the UI follow the same path as bad import rows.
 
@@ -95,21 +122,21 @@ The CSV includes XSS payloads, SQL-like strings, invalid prices, and other trap 
 
 We chose **quarantine instead** (`PENDING` + validation tags) because this is a **demo meant to show judgment**:
 
-- Reviewers can see *which* rows failed and *why* (`XS-001`, `SQL-001`, `YM-015`, etc.)
+- Reviewers can see _which_ rows failed and _why_ (`XS-001`, `SQL-001`, `YM-015`, etc.)
 - The owner workflow (fix → approve) mirrors how a real catalog team handles a bad supplier file
 - The shop stays safe: only `APPROVED` products are searchable and purchasable
 
 In production we would likely combine both approaches: **block obvious attacks at ingress**, log them, and only quarantine rows that are fixable data-quality issues (bad price, missing category). For the challenge, storing trap rows as pending makes the edge cases visible without ever executing them — React escapes on render, Prisma parameterizes queries, and the public shop never lists unapproved inventory.
 
-| Decision | Rationale |
-|----------|-----------|
-| Next.js full-stack | Single deployable unit; UI and API share types and services |
-| PostgreSQL + Prisma | Relational orders/inventory; parameterized queries by default |
-| Session auth by role | Fits demo UX, keeps a real login step, and is simpler than a shared secret for reviewers |
-| Quarantine invalid CSV rows | Import never fails entirely; owner sees tags and fixes data — shows judgment vs blind skip |
-| SKU suffix for duplicates | Preserves conflicting rows as distinct products (`RS-001-V2`) instead of last-wins upsert |
-| React text rendering + ORM | XSS/SQL strings in names are stored for review but escaped on display and never concatenated into SQL |
-| Mock payment | Real PSP out of scope; transactional stock update still exercises concurrency |
+| Decision                    | Rationale                                                                                             |
+| --------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Next.js full-stack          | Single deployable unit; UI and API share types and services                                           |
+| PostgreSQL + Prisma         | Relational orders/inventory; parameterized queries by default                                         |
+| Session auth by role        | Fits demo UX, keeps a real login step, and is simpler than a shared secret for reviewers              |
+| Quarantine invalid CSV rows | Import never fails entirely; owner sees tags and fixes data — shows judgment vs blind skip            |
+| SKU suffix for duplicates   | Preserves conflicting rows as distinct products (`RS-001-V2`) instead of last-wins upsert             |
+| React text rendering + ORM  | XSS/SQL strings in names are stored for review but escaped on display and never concatenated into SQL |
+| Mock payment                | Real PSP out of scope; transactional stock update still exercises concurrency                         |
 
 ### Alternatives considered
 
@@ -145,15 +172,15 @@ The challenge CSV file was also updated so duplicates are explicit (`RS-001-V2`,
 
 ### Quarantined (`PENDING` — owner review at `/owner/approvals`)
 
-| Issue | Example in CSV |
-|-------|----------------|
-| Script tags in name | `XS-001` — `<script>alert('xss')</script>` |
-| Suspicious SQL patterns | `SQL-001` — `'; DROP TABLE products; --` |
-| Invalid / “free” price | `YM-015` — `free` |
-| Negative stock | `DL-007` — `-5` |
-| Missing category | `GC-025` — empty category |
-| Stock over cap (10,000) | `GC-025` — `99999` |
-| Missing name | Rows with empty name (placeholder `Pending: {sku}`) |
+| Issue                   | Example in CSV                                      |
+| ----------------------- | --------------------------------------------------- |
+| Script tags in name     | `XS-001` — `<script>alert('xss')</script>`          |
+| Suspicious SQL patterns | `SQL-001` — `'; DROP TABLE products; --`            |
+| Invalid / “free” price  | `YM-015` — `free`                                   |
+| Negative stock          | `DL-007` — `-5`                                     |
+| Missing category        | `GC-025` — empty category                           |
+| Stock over cap (10,000) | `GC-025` — `99999`                                  |
+| Missing name            | Rows with empty name (placeholder `Pending: {sku}`) |
 
 **Note:** Normal apostrophes (e.g. `O'Brien`) are **not** flagged — only obvious injection patterns.
 
@@ -164,10 +191,10 @@ The challenge CSV file was also updated so duplicates are explicit (`RS-001-V2`,
 
 ### Duplicate SKUs (edge case we found)
 
-| Original SKU | Rows in source | Resolution |
-|--------------|----------------|------------|
-| `RS-001` | 2 (different price/description) | 2nd → `RS-001-V2` |
-| `BS-021` | 3 (different price/description) | 2nd → `BS-021-V2`, 3rd → `BS-021-V3` |
+| Original SKU | Rows in source                  | Resolution                           |
+| ------------ | ------------------------------- | ------------------------------------ |
+| `RS-001`     | 2 (different price/description) | 2nd → `RS-001-V2`                    |
+| `BS-021`     | 3 (different price/description) | 2nd → `BS-021-V2`, 3rd → `BS-021-V3` |
 
 Previously we upserted last-wins, which dropped earlier variants. Suffixes keep every row importable and searchable.
 
@@ -199,12 +226,12 @@ Owners edit pending products, clear all issue tags, then approve. Approve is blo
 
 **Manual audit focus** (higher impact than transitive npm warnings for this demo):
 
-| Area | What to verify |
-|------|----------------|
+| Area          | What to verify                                                             |
+| ------------- | -------------------------------------------------------------------------- |
 | Authorization | Buyer cannot import/approve; Seller cannot touch another seller’s products |
-| CSV traps | `XS-001` / `SQL-001` stay quarantined; no script execution on `/shop` |
-| Checkout | Cannot buy pending products; overselling and price tampering rejected |
-| Session | Tampered `ntd_session` cookie is rejected |
+| CSV traps     | `XS-001` / `SQL-001` stay quarantined; no script execution on `/shop`      |
+| Checkout      | Cannot buy pending products; overselling and price tampering rejected      |
+| Session       | Tampered `ntd_session` cookie is rejected                                  |
 
 **Known demo limitations** (acceptable for the challenge, not for production):
 
@@ -216,10 +243,10 @@ Owners edit pending products, clear all issue tags, then approve. Approve is blo
 
 Running `npm audit` may report **moderate** issues in transitive **dev/build** dependencies. As of this submission:
 
-| Advisory | Chain | Practical risk here |
-|----------|-------|---------------------|
-| `@hono/node-server` (middleware bypass in `serveStatic`) | `prisma` → `@prisma/dev` → `@hono/node-server` | **Low** — Prisma dev tooling only; not exposed in the Next.js production app |
-| `postcss` (XSS in CSS stringify output) | `next` → `postcss` | **Low** — build-time Tailwind/PostCSS only; we do not process user-supplied CSS |
+| Advisory                                                 | Chain                                          | Practical risk here                                                             |
+| -------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------- |
+| `@hono/node-server` (middleware bypass in `serveStatic`) | `prisma` → `@prisma/dev` → `@hono/node-server` | **Low** — Prisma dev tooling only; not exposed in the Next.js production app    |
+| `postcss` (XSS in CSS stringify output)                  | `next` → `postcss`                             | **Low** — build-time Tailwind/PostCSS only; we do not process user-supplied CSS |
 
 **Do not run `npm audit fix --force`.** npm may try to downgrade to breaking versions (e.g. Prisma 6.x, Next 9.x) and break the project.
 
@@ -227,23 +254,24 @@ Running `npm audit` may report **moderate** issues in transitive **dev/build** d
 
 ## API overview
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/api/auth/login` | No | Demo login `{ "role", "username", "password" }` |
-| POST | `/api/auth/logout` | Session | End session |
-| GET | `/api/auth/me` | Session | Current user |
-| GET | `/api/products/search?q=&category=` | No | Search approved products |
-| GET | `/api/products/[id]` | No | Product detail |
-| GET | `/api/products?scope=mine` | Seller | Seller’s listings |
-| GET | `/api/products` | Owner | All products |
-| POST | `/api/products` | Seller | Create → `PENDING` |
-| PUT | `/api/products/[id]` | Seller / Owner | Update (rules per role above) |
-| DELETE | `/api/products/[id]` | Seller / Owner | Delete own / any |
-| GET | `/api/products/pending` | Owner | Pending queue |
-| POST | `/api/products/[id]/approval` | Owner | Approve or reject |
-| POST | `/api/products/import` | Owner | CSV upload (`file` field) |
-| POST | `/api/orders` | Buyer | Mock checkout |
-| GET | `/api/orders?id=` | No | Order by id |
+| Method | Endpoint                            | Auth           | Description                                     |
+| ------ | ----------------------------------- | -------------- | ----------------------------------------------- |
+| POST   | `/api/auth/login`                   | No             | Demo login `{ "role", "username", "password" }` |
+| POST   | `/api/auth/logout`                  | Session        | End session                                     |
+| GET    | `/api/auth/me`                      | Session        | Current user                                    |
+| GET    | `/api/products/search?q=&category=` | No             | Search approved products                        |
+| GET    | `/api/products/[id]`                | No             | Product detail                                  |
+| GET    | `/api/products?scope=mine`          | Seller         | Seller’s listings                               |
+| GET    | `/api/products`                     | Owner          | All products                                    |
+| POST   | `/api/products`                     | Seller         | Create → `PENDING`                              |
+| PUT    | `/api/products/[id]`                | Seller / Owner | Update (rules per role above)                   |
+| DELETE | `/api/products/[id]`                | Seller / Owner | Delete own / any                                |
+| GET    | `/api/products/pending`             | Owner          | Pending queue                                   |
+| POST   | `/api/products/[id]/approval`       | Owner          | Approve or reject                               |
+| POST   | `/api/products/import`              | Owner          | CSV upload (`file` field)                       |
+| POST   | `/api/orders`                       | Buyer          | Mock checkout                                   |
+| GET    | `/api/orders?id=`                   | No             | Order by id                                     |
+| POST   | `/api/chat`                         | No             | Shopping assistant (`messages[]` → Gemini)      |
 
 ## Testing
 
